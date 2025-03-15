@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Simple MQTT Client</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+		<style>
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+					Helvetica, Arial, sans-serif;
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 20px;
+			}
+			.status {
+				display: flex;
+				align-items: center;
+				margin-bottom: 20px;
+				padding: 10px;
+				background-color: #f5f5f5;
+				border-radius: 4px;
+			}
+			.indicator {
+				width: 12px;
+				height: 12px;
+				border-radius: 50%;
+				margin-right: 10px;
+			}
+			.connected {
+				background-color: #4caf50;
+			}
+			.disconnected {
+				background-color: #f44336;
+			}
+			.connecting {
+				background-color: #ff9800;
+				animation: blink 1s infinite;
+			}
+			@keyframes blink {
+				0% {
+					opacity: 0.5;
+				}
+				50% {
+					opacity: 1;
+				}
+				100% {
+					opacity: 0.5;
+				}
+			}
+			.error {
+				padding: 10px;
+				margin-bottom: 20px;
+				background-color: #ffebee;
+				border-left: 4px solid #f44336;
+				color: #b71c1c;
+				display: none;
+			}
+			.controls {
+				display: flex;
+				margin-bottom: 20px;
+			}
+			input {
+				flex: 1;
+				padding: 10px;
+				border: 1px solid #ddd;
+				border-radius: 4px 0 0 4px;
+				font-size: 1rem;
+			}
+			button {
+				padding: 10px 20px;
+				background-color: #2196f3;
+				color: white;
+				border: none;
+				border-radius: 0 4px 4px 0;
+				cursor: pointer;
+				font-size: 1rem;
+			}
+			button:disabled {
+				background-color: #cccccc;
+			}
+			.messages {
+				background-color: #f9f9f9;
+				border-radius: 4px;
+				padding: 15px;
+			}
+			.messages h3 {
+				margin-top: 0;
+			}
+			#messageList {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				max-height: 400px;
+				overflow-y: auto;
+			}
+			.message-item {
+				background-color: white;
+				border: 1px solid #e0e0e0;
+				border-radius: 4px;
+				padding: 10px;
+				margin-bottom: 10px;
+			}
+			.message-header {
+				display: flex;
+				justify-content: space-between;
+				margin-bottom: 5px;
+				font-size: 0.9rem;
+			}
+			.message-topic {
+				font-weight: bold;
+				color: #2196f3;
+			}
+			.message-time {
+				color: #757575;
+			}
+			.message-content {
+				margin: 0;
+				white-space: pre-wrap;
+				font-family: monospace;
+				font-size: 0.9rem;
+				background-color: #f5f5f5;
+				padding: 8px;
+				border-radius: 4px;
+				overflow-x: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Simple MQTT Client</h1>
+
+		<div class="status">
+			<div id="statusIndicator" class="indicator disconnected"></div>
+			<span id="statusText">Status: Disconnected</span>
+			<span
+				id="subscriptionStatus"
+				style="margin-left: 15px; display: none"
+			></span>
+		</div>
+
+		<div id="errorDisplay" class="error"></div>
+
+		<div class="controls">
+			<input
+				type="text"
+				id="messageInput"
+				placeholder="Enter message to publish"
+				disabled
+			/>
+			<button id="publishButton" disabled>Publish</button>
+		</div>
+
+		<div class="messages">
+			<h3>Received Messages</h3>
+			<p id="noMessages">No messages received yet</p>
+			<ul id="messageList"></ul>
+		</div>
+
+		<script>
+			// MQTT Configuration
+			const brokerUrl = 'wss://tigoe.net/mqtt'
+			const topic = 'airsense'
+			const options = {
+				username: 'conndev',
+				password: 'b4s1l!',
+				clientId: 'mqttJsClient-' + Math.random().toString(16).substr(2, 8),
+				clean: true,
+				connectTimeout: 10000,
+			}
+
+			// DOM Elements
+			const statusIndicator = document.getElementById('statusIndicator')
+			const statusText = document.getElementById('statusText')
+			const subscriptionStatus = document.getElementById('subscriptionStatus')
+			const errorDisplay = document.getElementById('errorDisplay')
+			const messageInput = document.getElementById('messageInput')
+			const publishButton = document.getElementById('publishButton')
+			const noMessages = document.getElementById('noMessages')
+			const messageList = document.getElementById('messageList')
+
+			// State variables
+			let client = null
+			let isConnected = false
+			let isSubscribed = false
+
+			// Helper functions
+			function showError(message) {
+				errorDisplay.textContent = message
+				errorDisplay.style.display = 'block'
+			}
+
+			function hideError() {
+				errorDisplay.style.display = 'none'
+			}
+
+			function updateStatus(status) {
+				statusText.textContent = `Status: ${status}`
+				statusIndicator.className = `indicator ${status.toLowerCase()}`
+
+				if (status === 'Connected') {
+					messageInput.disabled = false
+					publishButton.disabled = false
+				} else {
+					messageInput.disabled = true
+					publishButton.disabled = true
+				}
+			}
+
+			function addMessage(topic, payload, isJson = true) {
+				noMessages.style.display = 'none'
+
+				const li = document.createElement('li')
+				li.className = 'message-item'
+
+				const header = document.createElement('div')
+				header.className = 'message-header'
+
+				const topicSpan = document.createElement('span')
+				topicSpan.className = 'message-topic'
+				topicSpan.textContent = topic
+
+				const timeSpan = document.createElement('span')
+				timeSpan.className = 'message-time'
+				timeSpan.textContent = new Date().toLocaleTimeString()
+
+				header.appendChild(topicSpan)
+				header.appendChild(timeSpan)
+
+				const content = document.createElement('pre')
+				content.className = 'message-content'
+
+				try {
+					if (isJson) {
+						const jsonObject = JSON.parse(payload)
+						content.textContent = JSON.stringify(jsonObject, null, 2)
+					} else {
+						content.textContent = payload
+					}
+				} catch (e) {
+					content.textContent = payload
+				}
+
+				li.appendChild(header)
+				li.appendChild(content)
+
+				messageList.insertBefore(li, messageList.firstChild)
+
+				// Limit to 20 messages
+				if (messageList.children.length > 20) {
+					messageList.removeChild(messageList.lastChild)
+				}
+			}
+
+			// Initialize MQTT connection
+			function connectMQTT() {
+				updateStatus('Connecting')
+				hideError()
+
+				try {
+					console.log('Connecting to MQTT broker:', brokerUrl)
+					client = mqtt.connect(brokerUrl, options)
+
+					// Connection event handlers
+					client.on('connect', function () {
+						console.log('Connected to MQTT broker')
+						isConnected = true
+						updateStatus('Connected')
+
+						// Subscribe to topic
+						client.subscribe(topic, function (err) {
+							if (!err) {
+								console.log(`Subscribed to topic: ${topic}`)
+								isSubscribed = true
+								subscriptionStatus.textContent = `Subscribed to: ${topic}`
+								subscriptionStatus.style.display = 'inline-block'
+
+								// Send a test message
+								setTimeout(function () {
+									console.log('Publishing test message')
+									client.publish(
+										topic,
+										JSON.stringify({
+											test: true,
+											time: new Date().toISOString(),
+											message: 'Self-test from simple client',
+										})
+									)
+								}, 1000)
+							} else {
+								console.error('Subscription error:', err)
+								showError(`Failed to subscribe: ${err.message}`)
+							}
+						})
+					})
+
+					client.on('message', function (receivedTopic, payload) {
+						const message = payload.toString()
+						console.log(`Received message on ${receivedTopic}:`, message)
+
+						let isJson = true
+						try {
+							JSON.parse(message)
+						} catch (e) {
+							isJson = false
+						}
+
+						addMessage(receivedTopic, message, isJson)
+					})
+
+					client.on('error', function (err) {
+						console.error('MQTT error:', err)
+						updateStatus('Error')
+						showError(`Connection error: ${err.message}`)
+					})
+
+					client.on('close', function () {
+						console.log('Connection closed')
+						isConnected = false
+						isSubscribed = false
+						updateStatus('Disconnected')
+						subscriptionStatus.style.display = 'none'
+					})
+
+					client.on('offline', function () {
+						console.log('Client offline')
+						isConnected = false
+						updateStatus('Disconnected')
+					})
+
+					client.on('reconnect', function () {
+						console.log('Attempting to reconnect')
+						updateStatus('Connecting')
+					})
+				} catch (err) {
+					console.error('Failed to create MQTT client:', err)
+					showError(`Failed to initialize MQTT client: ${err.message}`)
+					updateStatus('Error')
+				}
+			}
+
+			// Handle publishing messages
+			publishButton.addEventListener('click', function () {
+				if (!client || !isConnected || messageInput.value.trim() === '') return
+
+				const payload = JSON.stringify({
+					time: new Date().toISOString(),
+					message: messageInput.value,
+				})
+
+				publishButton.disabled = true
+				publishButton.textContent = 'Sending...'
+
+				client.publish(topic, payload, function (err) {
+					if (err) {
+						console.error('Publish error:', err)
+						showError(`Failed to publish: ${err.message}`)
+					} else {
+						console.log('Message published successfully')
+						messageInput.value = ''
+					}
+
+					publishButton.disabled = false
+					publishButton.textContent = 'Publish'
+				})
+			})
+
+			// Start connection when page loads
+			window.addEventListener('load', connectMQTT)
+
+			// Clean up on page unload
+			window.addEventListener('beforeunload', function () {
+				if (client) {
+					client.end()
+				}
+			})
+		</script>
+	</body>
+</html>

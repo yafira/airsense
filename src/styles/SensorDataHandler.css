@@ -1,0 +1,66 @@
+.sensor-status {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.status-container {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.status-indicator {
+	margin-right: 10px;
+	font-weight: bold;
+}
+
+.status-connected {
+	color: green;
+}
+
+.status-connecting {
+	color: orange;
+}
+
+.status-disconnected {
+	color: red;
+}
+
+.last-updated {
+	font-size: 0.8rem;
+	color: #666;
+}
+
+.ip-config {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	padding: 10px;
+	color: #000;
+	background-color: #f5f5f5;
+	border-radius: 5px;
+}
+
+.ip-input-container {
+	display: flex;
+	align-items: center;
+}
+
+.ip-input-container label {
+	margin-right: 5px;
+}
+
+.ip-input-container input {
+	margin-right: 10px;
+	width: 120px;
+}
+
+.connect-button {
+	background-color: #7ab67c;
+	color: white;
+	border: none;
+	padding: 5px 10px;
+	border-radius: 4px;
+}
