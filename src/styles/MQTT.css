@@ -4,14 +4,14 @@
 	padding: 20px;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	margin-top: 20px;
-	color: #fff;
+	color: #ffffff;
 }
 
 .mqtt-container h2 {
 	margin-bottom: 15px;
 	font-size: 18px;
 	font-weight: 600;
-	color: #d5d4d4;
+	color: #ffb3ba;
 }
 
 .connection-status {
@@ -51,7 +51,8 @@
 }
 
 .subscribed-tag {
-	background-color: #37474f;
+	background-color: #bea8de;
+	color: #000;
 	padding: 4px 8px;
 	border-radius: 4px;
 	font-size: 0.8rem;

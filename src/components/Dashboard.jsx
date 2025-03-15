@@ -39,7 +39,7 @@ const Dashboard = () => {
 	return (
 		<div className='dashboard'>
 			<header className='dashboard-header'>
-				<h1>Indoor Air Quality | BME680 Sensor Dashboard</h1>
+				<h1>airsense | Indoor Air Quality | BME680 Sensor Dashboard</h1>
 			</header>
 
 			<div className='cards-container'>
