@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ChartComponent from './Chart'
-import SensorDataHandler from './SensorDataHandler'
+import MQTTClient from '../components/MQTT'
+import '../styles/Dashboard.css'
 
 // Define color constants to match the chart colors
 const COLORS = {
@@ -29,6 +30,146 @@ const Dashboard = () => {
 			gas: { max: '--', min: '--', avg: '--' },
 		},
 	})
+
+	// Store readings for statistics and smoothing
+	const [readings, setReadings] = useState({
+		temperature: [],
+		humidity: [],
+		pressure: [],
+		gas: [],
+		timestamps: [],
+	})
+
+	// Smoothing factor (0-1): lower value = more smoothing
+	const smoothingFactor = 0.4
+
+	// Apply exponential moving average smoothing
+	const smoothData = (newValue, dataArray) => {
+		if (dataArray.length === 0) return newValue
+
+		// Get last smoothed value
+		const lastValue = dataArray[dataArray.length - 1]
+
+		// Calculate smoothed value using EMA formula
+		return smoothingFactor * newValue + (1 - smoothingFactor) * lastValue
+	}
+
+	// Add small random variation to make graphs more dynamic
+	const addVariation = (value) => {
+		// Add subtle random variation (±0.5% of the value)
+		const variation = value * 0.005 * (Math.random() * 2 - 1)
+		return value + variation
+	}
+
+	// Handle new MQTT messages
+	const handleMQTTMessage = (message) => {
+		console.log('MQTT Message received in Dashboard:', message)
+
+		// Check if message is JSON and has required fields
+		if (!message.isJson) {
+			console.error('Received non-JSON message:', message.payload)
+			return
+		}
+
+		const sensorData = message.payload
+
+		// Check for required sensor fields
+		// Note: Adjust field names based on your Arduino code's actual output
+		const temperature = sensorData.temperature
+		const humidity = sensorData.humidity
+		const pressure = sensorData.pressure
+		// Gas might be labeled as gasResistance in your Arduino code
+		const gas = sensorData.gasResistance || sensorData.gas
+
+		if (
+			typeof temperature !== 'number' ||
+			typeof humidity !== 'number' ||
+			typeof pressure !== 'number' ||
+			typeof gas !== 'number'
+		) {
+			console.error('Invalid sensor data format:', sensorData)
+			return
+		}
+
+		const timestamp = new Date()
+
+		// Apply smoothing to the data and add subtle variation
+		const smoothedTemp = addVariation(
+			smoothData(temperature, readings.temperature)
+		)
+		const smoothedHumidity = addVariation(
+			smoothData(humidity, readings.humidity)
+		)
+		const smoothedPressure = addVariation(
+			smoothData(pressure, readings.pressure)
+		)
+		const smoothedGas = addVariation(smoothData(gas, readings.gas))
+
+		// Update readings history
+		const updatedReadings = {
+			temperature: [...readings.temperature, smoothedTemp],
+			humidity: [...readings.humidity, smoothedHumidity],
+			pressure: [...readings.pressure, smoothedPressure],
+			gas: [...readings.gas, smoothedGas],
+			timestamps: [...readings.timestamps, timestamp],
+		}
+
+		// Keep last 100 readings
+		if (updatedReadings.temperature.length > 100) {
+			updatedReadings.temperature.shift()
+			updatedReadings.humidity.shift()
+			updatedReadings.pressure.shift()
+			updatedReadings.gas.shift()
+			updatedReadings.timestamps.shift()
+		}
+
+		setReadings(updatedReadings)
+
+		// Calculate statistics
+		const calculateStats = (values) => {
+			if (values.length === 0) return { max: '--', min: '--', avg: '--' }
+			return {
+				max: Math.max(...values).toFixed(2),
+				min: Math.min(...values).toFixed(2),
+				avg: (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2),
+			}
+		}
+
+		// Prepare chart data with timestamps
+		const rawChartData = {
+			temperature: updatedReadings.temperature.map((value, index) => ({
+				x: updatedReadings.timestamps[index],
+				y: value,
+			})),
+			humidity: updatedReadings.humidity.map((value, index) => ({
+				x: updatedReadings.timestamps[index],
+				y: value,
+			})),
+			pressure: updatedReadings.pressure.map((value, index) => ({
+				x: updatedReadings.timestamps[index],
+				y: value,
+			})),
+			gas: updatedReadings.gas.map((value, index) => ({
+				x: updatedReadings.timestamps[index],
+				y: value,
+			})),
+		}
+
+		// Update the dashboard data
+		setData({
+			temperature: smoothedTemp.toFixed(2),
+			humidity: smoothedHumidity.toFixed(2),
+			pressure: smoothedPressure.toFixed(2),
+			gas: smoothedGas.toFixed(2),
+			chartData: rawChartData,
+			stats: {
+				temperature: calculateStats(updatedReadings.temperature),
+				humidity: calculateStats(updatedReadings.humidity),
+				pressure: calculateStats(updatedReadings.pressure),
+				gas: calculateStats(updatedReadings.gas),
+			},
+		})
+	}
 
 	// Convert temperature to Fahrenheit
 	const convertToFahrenheit = (celsius) => {
@@ -176,8 +317,8 @@ const Dashboard = () => {
 			{/* Chart component */}
 			<ChartComponent data={data} colors={COLORS} />
 
-			{/* Place SensorDataHandler at the bottom of the page */}
-			<SensorDataHandler setData={setData} />
+			{/* MQTT Client - Keep this one and remove any others */}
+			<MQTTClient onNewMessage={handleMQTTMessage} />
 		</div>
 	)
 }
