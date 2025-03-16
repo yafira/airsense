@@ -16,13 +16,12 @@ const MQTTClient = ({ onNewMessage }) => {
 	const brokerUrl = 'wss://tigoe.net/mqtt'
 	const topic = 'airsense'
 	const options = {
-		username: 'conndev',
-		password: 'b4s1l!',
+		username: process.env.REACT_APP_MQTT_USERNAME,
+		password: process.env.REACT_APP_MQTT_PASSWORD,
 		clientId: 'mqttJsClient-' + Math.random().toString(16).substr(2, 8),
 		clean: true,
 		connectTimeout: 10000,
 	}
-
 	// Reference to maintain connection
 	const clientRef = useRef(null)
 
