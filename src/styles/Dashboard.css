@@ -98,14 +98,6 @@ body {
 	border-bottom: 1px solid #eee;
 }
 
-.chart-container {
-	background: #ffffff;
-	border-radius: 8px;
-	padding: 20px;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	margin-top: 20px;
-}
-
 canvas {
 	width: 100% !important;
 	height: 300px !important;

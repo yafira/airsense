@@ -1,0 +1,44 @@
+.chart-card {
+	border-radius: 10px;
+	padding: 20px;
+	margin-bottom: 20px;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chart-container {
+	position: relative;
+	width: 100%;
+	margin-bottom: 15px;
+}
+
+.dataset-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-top: 10px;
+	justify-content: center;
+}
+
+.toggle-btn {
+	padding: 8px 15px;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	color: white;
+	min-width: 90px;
+}
+
+.toggle-btn:hover {
+	opacity: 0.9;
+	transform: translateY(-2px);
+}
+
+.toggle-btn.active {
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-btn:not(.active) {
+	opacity: 0.7;
+}
