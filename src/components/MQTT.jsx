@@ -11,10 +11,14 @@ const MQTTClient = ({ onNewMessage }) => {
 	const [messages, setMessages] = useState([])
 	const [messageInput, setMessageInput] = useState('')
 	const [isSubscribed, setIsSubscribed] = useState(false)
+	const [publishTopic, setPublishTopic] = useState('airsense')
+	const [subscriptionTopics, setSubscriptionTopics] = useState([
+		'airsense',
+		'airsense/#',
+	])
 
 	// MQTT configuration
 	const brokerUrl = 'wss://tigoe.net/mqtt'
-	const topic = 'airsense'
 
 	// Memoize options to prevent reconnection on every render
 	const options = useMemo(
@@ -36,35 +40,51 @@ const MQTTClient = ({ onNewMessage }) => {
 		console.log('Connected to MQTT broker')
 		setConnectionStatus('connected')
 
-		// Subscribe to topic
-		clientRef.current.subscribe(topic, (err) => {
-			if (!err) {
-				console.log(`Subscribed to topic: ${topic}`)
-				setIsSubscribed(true)
-
-				// Send a test message
-				setTimeout(() => {
-					console.log('Publishing test message')
-					clientRef.current.publish(
-						topic,
-						JSON.stringify({
-							test: true,
-							time: new Date().toISOString(),
-							message: 'Self-test from React client',
-						})
+		// Subscribe to multiple topics
+		subscriptionTopics.forEach((topicToSubscribe) => {
+			clientRef.current.subscribe(topicToSubscribe, (err) => {
+				if (!err) {
+					console.log(`Subscribed to topic: ${topicToSubscribe}`)
+					setIsSubscribed(true)
+				} else {
+					console.error(`Subscription error for ${topicToSubscribe}:`, err)
+					setErrorMessage(
+						`Failed to subscribe to ${topicToSubscribe}: ${err.message}`
 					)
-				}, 1000)
-			} else {
-				console.error('Subscription error:', err)
-				setErrorMessage(`Failed to subscribe: ${err.message}`)
-			}
+				}
+			})
 		})
-	}, [topic])
+
+		// Send a test message
+		setTimeout(() => {
+			console.log('Publishing test message')
+			clientRef.current.publish(
+				publishTopic,
+				JSON.stringify({
+					test: true,
+					time: new Date().toISOString(),
+					message: 'Self-test from React client',
+				})
+			)
+		}, 1000)
+	}, [publishTopic, subscriptionTopics])
 
 	const handleMessage = useCallback(
 		(receivedTopic, payload) => {
+			// Safely handle undefined payload
+			if (!payload) {
+				console.log(`Received undefined payload on ${receivedTopic}`)
+				return
+			}
+
 			const message = payload.toString()
 			console.log(`Received message on ${receivedTopic}:`, message)
+
+			// Check if message is empty
+			if (!message) {
+				console.log(`Received empty message on ${receivedTopic}`)
+				return
+			}
 
 			let isJson = true
 			let parsedMessage = message
@@ -72,6 +92,7 @@ const MQTTClient = ({ onNewMessage }) => {
 			try {
 				parsedMessage = JSON.parse(message)
 			} catch (e) {
+				console.log(`Received non-JSON message on ${receivedTopic}: ${message}`)
 				isJson = false
 			}
 
@@ -89,9 +110,12 @@ const MQTTClient = ({ onNewMessage }) => {
 				return updatedMessages
 			})
 
-			// Pass message data to parent component if callback provided
-			if (onNewMessage && typeof onNewMessage === 'function') {
-				onNewMessage(newMessage)
+			// Only process JSON messages
+			if (isJson && parsedMessage) {
+				// Pass the complete message to the parent component
+				if (onNewMessage && typeof onNewMessage === 'function') {
+					onNewMessage(newMessage)
+				}
 			}
 		},
 		[onNewMessage]
@@ -162,7 +186,7 @@ const MQTTClient = ({ onNewMessage }) => {
 			message: messageInput,
 		})
 
-		client.publish(topic, payload, (err) => {
+		client.publish(publishTopic, payload, (err) => {
 			if (err) {
 				console.error('Publish error:', err)
 				setErrorMessage(`Failed to publish: ${err.message}`)
@@ -171,6 +195,32 @@ const MQTTClient = ({ onNewMessage }) => {
 				setMessageInput('')
 			}
 		})
+	}
+
+	// Add a new topic to subscribe to
+	const addTopic = () => {
+		if (messageInput.trim() === '') return
+
+		const newTopic = messageInput.trim()
+		if (!subscriptionTopics.includes(newTopic)) {
+			setSubscriptionTopics((prev) => [...prev, newTopic])
+
+			// Subscribe to the new topic if already connected
+			if (clientRef.current && connectionStatus === 'connected') {
+				clientRef.current.subscribe(newTopic, (err) => {
+					if (!err) {
+						console.log(`Subscribed to additional topic: ${newTopic}`)
+					} else {
+						console.error(`Subscription error for ${newTopic}:`, err)
+						setErrorMessage(
+							`Failed to subscribe to ${newTopic}: ${err.message}`
+						)
+					}
+				})
+			}
+
+			setMessageInput('')
+		}
 	}
 
 	// Connect when component mounts
@@ -207,18 +257,37 @@ const MQTTClient = ({ onNewMessage }) => {
 				<div className={`status-indicator ${getStatusClass()}`}></div>
 				<span>Status: {connectionStatus}</span>
 				{isSubscribed && (
-					<span className='subscribed-tag'>Subscribed to: {topic}</span>
+					<div className='subscribed-topics'>
+						<span>Subscribed to:</span>
+						{subscriptionTopics.map((topic, index) => (
+							<span key={index} className='subscribed-tag'>
+								{topic}
+							</span>
+						))}
+					</div>
 				)}
 			</div>
 
 			{errorMessage && <div className='error-message'>{errorMessage}</div>}
+
+			<div className='publish-settings'>
+				<label htmlFor='publishTopic'>Publish Topic:</label>
+				<input
+					id='publishTopic'
+					type='text'
+					value={publishTopic}
+					onChange={(e) => setPublishTopic(e.target.value)}
+					placeholder='Publish topic'
+					disabled={!isSubscribed}
+				/>
+			</div>
 
 			<div className='message-input'>
 				<input
 					type='text'
 					value={messageInput}
 					onChange={(e) => setMessageInput(e.target.value)}
-					placeholder='Enter message to publish'
+					placeholder='Enter message to publish or topic to subscribe'
 					disabled={!isSubscribed}
 				/>
 				<button
@@ -226,6 +295,12 @@ const MQTTClient = ({ onNewMessage }) => {
 					disabled={!isSubscribed || messageInput.trim() === ''}
 				>
 					Publish
+				</button>
+				<button
+					onClick={addTopic}
+					disabled={!isSubscribed || messageInput.trim() === ''}
+				>
+					Subscribe
 				</button>
 			</div>
 

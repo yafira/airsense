@@ -65,69 +65,99 @@ const Dashboard = () => {
 	const handleMQTTMessage = (message) => {
 		console.log('MQTT Message received in Dashboard:', message)
 
-		// Check if message is JSON and has required fields
-		if (!message.isJson) {
-			console.error('Received non-JSON message:', message.payload)
+		// Check if the message is valid and has the expected format
+		if (!message || !message.isJson || !message.payload) {
+			console.log('Invalid message format:', message)
 			return
 		}
 
 		const sensorData = message.payload
 
-		// Check for required sensor fields
-		// Note: Adjust field names based on your Arduino code's actual output
-		const temperature = sensorData.temperature
-		const humidity = sensorData.humidity
-		const pressure = sensorData.pressure
-		// Gas might be labeled as gasResistance in your Arduino code
-		const gas = sensorData.gasResistance || sensorData.gas
-
-		if (
-			typeof temperature !== 'number' ||
-			typeof humidity !== 'number' ||
-			typeof pressure !== 'number' ||
-			typeof gas !== 'number'
-		) {
-			console.error('Invalid sensor data format:', sensorData)
+		// Check if message has test flag and ignore if it does
+		if (sensorData.test === true) {
+			console.log('Ignoring test message')
 			return
 		}
 
-		const timestamp = new Date()
+		// Extract sensor data fields (adjust according to your actual payload structure)
+		const temperature =
+			typeof sensorData.temperature === 'number' ? sensorData.temperature : null
+		const humidity =
+			typeof sensorData.humidity === 'number' ? sensorData.humidity : null
+		const pressure =
+			typeof sensorData.pressure === 'number' ? sensorData.pressure : null
+		// Gas might be labeled as gasResistance in your Arduino code
+		const gas =
+			typeof sensorData.gasResistance === 'number'
+				? sensorData.gasResistance
+				: typeof sensorData.gas === 'number'
+				? sensorData.gas
+				: null
 
-		// Apply smoothing to the data and add subtle variation
-		const smoothedTemp = addVariation(
-			smoothData(temperature, readings.temperature)
-		)
-		const smoothedHumidity = addVariation(
-			smoothData(humidity, readings.humidity)
-		)
-		const smoothedPressure = addVariation(
-			smoothData(pressure, readings.pressure)
-		)
-		const smoothedGas = addVariation(smoothData(gas, readings.gas))
-
-		// Update readings history
-		const updatedReadings = {
-			temperature: [...readings.temperature, smoothedTemp],
-			humidity: [...readings.humidity, smoothedHumidity],
-			pressure: [...readings.pressure, smoothedPressure],
-			gas: [...readings.gas, smoothedGas],
-			timestamps: [...readings.timestamps, timestamp],
+		// Only proceed if we have at least one valid sensor reading
+		if (
+			temperature === null &&
+			humidity === null &&
+			pressure === null &&
+			gas === null
+		) {
+			console.log(
+				'No valid sensor readings found in the message payload:',
+				sensorData
+			)
+			return
 		}
 
+		const timestamp = message.time || new Date()
+
+		// Create copies of the current readings
+		const updatedReadings = { ...readings }
+
+		// Update each sensor reading if available
+		if (temperature !== null) {
+			const smoothedTemp = addVariation(
+				smoothData(temperature, readings.temperature)
+			)
+			updatedReadings.temperature = [...readings.temperature, smoothedTemp]
+		}
+
+		if (humidity !== null) {
+			const smoothedHumidity = addVariation(
+				smoothData(humidity, readings.humidity)
+			)
+			updatedReadings.humidity = [...readings.humidity, smoothedHumidity]
+		}
+
+		if (pressure !== null) {
+			const smoothedPressure = addVariation(
+				smoothData(pressure, readings.pressure)
+			)
+			updatedReadings.pressure = [...readings.pressure, smoothedPressure]
+		}
+
+		if (gas !== null) {
+			const smoothedGas = addVariation(smoothData(gas, readings.gas))
+			updatedReadings.gas = [...readings.gas, smoothedGas]
+		}
+
+		// Add timestamp
+		updatedReadings.timestamps = [...readings.timestamps, timestamp]
+
 		// Keep last 100 readings
-		if (updatedReadings.temperature.length > 100) {
-			updatedReadings.temperature.shift()
-			updatedReadings.humidity.shift()
-			updatedReadings.pressure.shift()
-			updatedReadings.gas.shift()
-			updatedReadings.timestamps.shift()
+		if (updatedReadings.timestamps.length > 100) {
+			Object.keys(updatedReadings).forEach((key) => {
+				if (Array.isArray(updatedReadings[key])) {
+					updatedReadings[key] = updatedReadings[key].slice(-100)
+				}
+			})
 		}
 
 		setReadings(updatedReadings)
 
-		// Calculate statistics
+		// Calculate statistics for available data
 		const calculateStats = (values) => {
-			if (values.length === 0) return { max: '--', min: '--', avg: '--' }
+			if (!values || values.length === 0)
+				return { max: '--', min: '--', avg: '--' }
 			return {
 				max: Math.max(...values).toFixed(2),
 				min: Math.min(...values).toFixed(2),
@@ -138,29 +168,64 @@ const Dashboard = () => {
 		// Prepare chart data with timestamps
 		const rawChartData = {
 			temperature: updatedReadings.temperature.map((value, index) => ({
-				x: updatedReadings.timestamps[index],
+				x: updatedReadings.timestamps[
+					Math.min(index, updatedReadings.timestamps.length - 1)
+				],
 				y: value,
 			})),
 			humidity: updatedReadings.humidity.map((value, index) => ({
-				x: updatedReadings.timestamps[index],
+				x: updatedReadings.timestamps[
+					Math.min(index, updatedReadings.timestamps.length - 1)
+				],
 				y: value,
 			})),
 			pressure: updatedReadings.pressure.map((value, index) => ({
-				x: updatedReadings.timestamps[index],
+				x: updatedReadings.timestamps[
+					Math.min(index, updatedReadings.timestamps.length - 1)
+				],
 				y: value,
 			})),
 			gas: updatedReadings.gas.map((value, index) => ({
-				x: updatedReadings.timestamps[index],
+				x: updatedReadings.timestamps[
+					Math.min(index, updatedReadings.timestamps.length - 1)
+				],
 				y: value,
 			})),
 		}
 
+		// Get latest values for display
+		const latestTemp =
+			updatedReadings.temperature.length > 0
+				? updatedReadings.temperature[
+						updatedReadings.temperature.length - 1
+				  ].toFixed(2)
+				: '--'
+
+		const latestHumidity =
+			updatedReadings.humidity.length > 0
+				? updatedReadings.humidity[updatedReadings.humidity.length - 1].toFixed(
+						2
+				  )
+				: '--'
+
+		const latestPressure =
+			updatedReadings.pressure.length > 0
+				? updatedReadings.pressure[updatedReadings.pressure.length - 1].toFixed(
+						2
+				  )
+				: '--'
+
+		const latestGas =
+			updatedReadings.gas.length > 0
+				? updatedReadings.gas[updatedReadings.gas.length - 1].toFixed(2)
+				: '--'
+
 		// Update the dashboard data
 		setData({
-			temperature: smoothedTemp.toFixed(2),
-			humidity: smoothedHumidity.toFixed(2),
-			pressure: smoothedPressure.toFixed(2),
-			gas: smoothedGas.toFixed(2),
+			temperature: latestTemp,
+			humidity: latestHumidity,
+			pressure: latestPressure,
+			gas: latestGas,
 			chartData: rawChartData,
 			stats: {
 				temperature: calculateStats(updatedReadings.temperature),
@@ -317,7 +382,7 @@ const Dashboard = () => {
 			{/* Chart component */}
 			<ChartComponent data={data} colors={COLORS} />
 
-			{/* MQTT Client - Keep this one and remove any others */}
+			{/* MQTT Client */}
 			<MQTTClient onNewMessage={handleMQTTMessage} />
 		</div>
 	)
