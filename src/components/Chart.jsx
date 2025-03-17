@@ -33,59 +33,56 @@ const ChartComponent = ({ data, colors }) => {
 		colorsRef.current = colors
 	}, [colors])
 
-	// Function to prepare data in the correct format for Chart.js
-	const prepareData = useCallback((rawData) => {
-		if (!rawData || !Array.isArray(rawData)) return []
-
-		// If data is array of numbers, convert to {x,y} format with timestamps
-		if (typeof rawData[0] !== 'object') {
-			const now = new Date().getTime()
-			return rawData.map((value, index) => ({
-				x: new Date(now - (rawData.length - 1 - index) * 1000),
-				y: value,
-			}))
-		}
-
-		// If data already has x,y format, ensure x is a Date object
-		return rawData.map((point) => ({
-			x: point.x instanceof Date ? point.x : new Date(point.x),
-			y: point.y,
-		}))
+	// Convert Celsius to Fahrenheit
+	const celsiusToFahrenheit = useCallback((celsius) => {
+		return (celsius * 9) / 5 + 32
 	}, [])
 
 	// Function to accumulate data
-	const accumulateData = useCallback((newData) => {
-		if (!newData || !newData.chartData) return
+	const accumulateData = useCallback(
+		(newData) => {
+			if (!newData || !newData.chartData) return
 
-		const dataTypes = ['temperature', 'humidity', 'pressure', 'gas']
-		const timestamp = new Date()
+			const dataTypes = ['temperature', 'humidity', 'pressure', 'gas']
+			const timestamp = new Date()
 
-		dataTypes.forEach((type) => {
-			if (newData.chartData[type] && Array.isArray(newData.chartData[type])) {
-				// For simplicity, we'll assume the last value is the most recent one
-				const latestValue =
-					newData.chartData[type][newData.chartData[type].length - 1]
-				const newPoint =
-					typeof latestValue === 'object'
-						? {
-								x:
-									latestValue.x instanceof Date
-										? latestValue.x
-										: new Date(latestValue.x),
-								y: latestValue.y,
-						  }
-						: { x: timestamp, y: latestValue }
+			dataTypes.forEach((type) => {
+				if (newData.chartData[type] && Array.isArray(newData.chartData[type])) {
+					// For simplicity, we'll assume the last value is the most recent one
+					const latestValue =
+						newData.chartData[type][newData.chartData[type].length - 1]
 
-				// Add the new data point to historical data
-				historicalData.current[type].push(newPoint)
+					let yValue =
+						typeof latestValue === 'object' ? latestValue.y : latestValue
 
-				// Optional: limit the number of points to prevent performance issues
-				if (historicalData.current[type].length > 100) {
-					historicalData.current[type].shift()
+					// Convert temperature to Fahrenheit
+					if (type === 'temperature') {
+						yValue = celsiusToFahrenheit(yValue)
+					}
+
+					const newPoint =
+						typeof latestValue === 'object'
+							? {
+									x:
+										latestValue.x instanceof Date
+											? latestValue.x
+											: new Date(latestValue.x),
+									y: yValue,
+							  }
+							: { x: timestamp, y: yValue }
+
+					// Add the new data point to historical data
+					historicalData.current[type].push(newPoint)
+
+					// Optional: limit the number of points to prevent performance issues
+					if (historicalData.current[type].length > 100) {
+						historicalData.current[type].shift()
+					}
 				}
-			}
-		})
-	}, [])
+			})
+		},
+		[celsiusToFahrenheit]
+	)
 
 	useEffect(() => {
 		// Ensure we have valid data
@@ -117,7 +114,7 @@ const ChartComponent = ({ data, colors }) => {
 			// Process data for each dataset
 			const datasets = []
 			const dataTypes = ['temperature', 'humidity', 'pressure', 'gas']
-			const units = ['°C', '%', 'hPa', 'Ω']
+			const units = ['°F', '%', 'hPa', 'Ω'] // Changed °C to °F
 			const axisPositions = ['left', 'right', 'right', 'right']
 
 			dataTypes.forEach((type, index) => {
@@ -248,7 +245,7 @@ const ChartComponent = ({ data, colors }) => {
 					ticks: {
 						color: colorsRef.current[type],
 						callback: function (value) {
-							return `${value} ${units[index]}`
+							return `${value.toFixed(1)} ${units[index]}` // Added toFixed(1) for cleaner display
 						},
 					},
 					beginAtZero: type === 'humidity',
@@ -311,7 +308,7 @@ const ChartComponent = ({ data, colors }) => {
 				chartInstance.current = null
 			}
 		}
-	}, [data, visibleDatasets, accumulateData, prepareData]) // Added proper dependencies
+	}, [data, visibleDatasets, accumulateData]) // Dependencies
 
 	// Handle toggling visibility of datasets
 	const toggleDataset = (datasetType) => {

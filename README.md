@@ -18,7 +18,7 @@ AirSense is a React-based application that displays real-time environmental sens
 
 The **Adafruit BME680** is an environmental sensor that measures the following:
 
-- **Temperature**: Measures ambient temperature in Celsius (°C).
+- **Temperature**: Measures ambient temperature in Celsius (°C) (however, it's displayed in Fahrenheit (°F) as well).
 - **Humidity**: Measures the humidity level in the air, represented as a percentage (%).
 - **Pressure**: Measures atmospheric pressure in hectopascals (hPa).
 - **Gas**: Detects the presence of gases in the air, typically used for air quality measurement, with a focus on volatile organic compounds (VOCs).
