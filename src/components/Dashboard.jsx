@@ -245,7 +245,7 @@ const Dashboard = () => {
 	return (
 		<div className='dashboard'>
 			<header className='dashboard-header'>
-				<h1>airsense | Indoor Air Quality using Adafruit BME680 Sensor</h1>
+				<h1>AirSense | Indoor Air Quality using Adafruit BME680 Sensor</h1>
 			</header>
 
 			<div className='cards-container'>

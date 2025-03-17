@@ -1,70 +1,70 @@
-# Getting Started with Create React App
+# AirSense 💨
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+AirSense is a React-based application that displays real-time environmental sensor data, including temperature, humidity, pressure, and gas readings, collected from an Adafruit BME680 sensor. The application visualizes the sensor data using dynamic charts powered by Chart.js.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Real-time Data**: Displays live environmental data from the BME680 sensor, including temperature, humidity, pressure, and gas readings.
+- **Dynamic Visualization**: Uses Chart.js to provide interactive, real-time charts of sensor data over time.
+- **Responsive Design**: The app is fully responsive, making it suitable for viewing on a variety of devices.
 
-### `npm start`
+## Technologies Used
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **React**: A JavaScript library for building user interfaces.
+- **Chart.js**: A charting library for creating responsive, dynamic charts.
+- **Adafruit BME680**: A sensor used to measure temperature, humidity, pressure, and gas levels in the environment. The BME680 is a powerful environmental sensor with a range of applications, including air quality monitoring, weather stations, and smart home systems.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## About the BME680 Sensor
 
-### `npm test`
+The **Adafruit BME680** is an environmental sensor that measures the following:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Temperature**: Measures ambient temperature in Celsius (°C).
+- **Humidity**: Measures the humidity level in the air, represented as a percentage (%).
+- **Pressure**: Measures atmospheric pressure in hectopascals (hPa).
+- **Gas**: Detects the presence of gases in the air, typically used for air quality measurement, with a focus on volatile organic compounds (VOCs).
 
-### `npm run build`
+The BME680 uses a gas sensor to detect a wide range of gases, providing a comprehensive understanding of the air quality in the surrounding environment. The sensor's data is updated in real time, making it perfect for applications that require continuous monitoring of environmental conditions.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Key Features of the BME680:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **Temperature range**: -40°C to +85°C
+- **Humidity range**: 0% to 100% RH
+- **Pressure range**: 300 hPa to 1100 hPa
+- **Gas resistance range**: 1 to 1,000,000 Ohms
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+This sensor is often used in various applications like indoor air quality monitoring, smart weather stations, and home automation systems.
 
-### `npm run eject`
+## Installation
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+To run the AirSense app locally:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. Clone the repository:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+   ```bash
+   git clone https://github.com/your-username/airsense.git
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+2. Navigate to the project directory:
 
-## Learn More
+   ```bash
+   cd airsense
+   ```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. Install the required dependencies:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+   ```bash
+   npm install
+   ```
 
-### Code Splitting
+4. Start the development server:
+   ```bash
+   npm start
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+The app should now be running locally on `http://localhost:3000`.
 
-### Analyzing the Bundle Size
+## Usage
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Once the app is running, you will see real-time environmental data being displayed in interactive charts. The charts update as new data is received from the BME680 sensor.
 
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+You can toggle the visibility of different datasets (temperature, humidity, pressure, and gas) using the provided buttons below the chart. Each dataset is displayed as a line graph with different colors for easy identification.
