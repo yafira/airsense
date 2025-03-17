@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import mqtt from 'mqtt'
 import PropTypes from 'prop-types'
 import '../styles/MQTT.css'
@@ -15,43 +15,24 @@ const MQTTClient = ({ onNewMessage }) => {
 	// MQTT configuration
 	const brokerUrl = 'wss://tigoe.net/mqtt'
 	const topic = 'airsense'
-	const options = {
-		username: process.env.REACT_APP_MQTT_USERNAME,
-		password: process.env.REACT_APP_MQTT_PASSWORD,
-		clientId: 'mqttJsClient-' + Math.random().toString(16).substr(2, 8),
-		clean: true,
-		connectTimeout: 10000,
-	}
+
+	// Memoize options to prevent reconnection on every render
+	const options = useMemo(
+		() => ({
+			username: process.env.REACT_APP_MQTT_USERNAME,
+			password: process.env.REACT_APP_MQTT_PASSWORD,
+			clientId: 'mqttJsClient-' + Math.random().toString(16).substr(2, 8),
+			clean: true,
+			connectTimeout: 10000,
+		}),
+		[]
+	) // Empty dependency array means this is created only once
+
 	// Reference to maintain connection
 	const clientRef = useRef(null)
 
-	// Connect to MQTT broker
-	const connectMQTT = () => {
-		setConnectionStatus('connecting')
-		setErrorMessage('')
-
-		try {
-			console.log('Connecting to MQTT broker:', brokerUrl)
-			const mqttClient = mqtt.connect(brokerUrl, options)
-			clientRef.current = mqttClient
-			setClient(mqttClient)
-
-			// Set up event handlers
-			mqttClient.on('connect', handleConnect)
-			mqttClient.on('message', handleMessage)
-			mqttClient.on('error', handleError)
-			mqttClient.on('close', handleClose)
-			mqttClient.on('offline', handleOffline)
-			mqttClient.on('reconnect', handleReconnect)
-		} catch (err) {
-			console.error('Failed to create MQTT client:', err)
-			setErrorMessage(`Failed to initialize MQTT client: ${err.message}`)
-			setConnectionStatus('error')
-		}
-	}
-
 	// Event handlers
-	const handleConnect = () => {
+	const handleConnect = useCallback(() => {
 		console.log('Connected to MQTT broker')
 		setConnectionStatus('connected')
 
@@ -78,62 +59,99 @@ const MQTTClient = ({ onNewMessage }) => {
 				setErrorMessage(`Failed to subscribe: ${err.message}`)
 			}
 		})
-	}
+	}, [topic])
 
-	const handleMessage = (receivedTopic, payload) => {
-		const message = payload.toString()
-		console.log(`Received message on ${receivedTopic}:`, message)
+	const handleMessage = useCallback(
+		(receivedTopic, payload) => {
+			const message = payload.toString()
+			console.log(`Received message on ${receivedTopic}:`, message)
 
-		let isJson = true
-		let parsedMessage = message
+			let isJson = true
+			let parsedMessage = message
 
-		try {
-			parsedMessage = JSON.parse(message)
-		} catch (e) {
-			isJson = false
-		}
+			try {
+				parsedMessage = JSON.parse(message)
+			} catch (e) {
+				isJson = false
+			}
 
-		const newMessage = {
-			topic: receivedTopic,
-			payload: parsedMessage,
-			isJson,
-			time: new Date(),
-			id: Date.now(),
-		}
+			const newMessage = {
+				topic: receivedTopic,
+				payload: parsedMessage,
+				isJson,
+				time: new Date(),
+				id: Date.now(),
+			}
 
-		setMessages((prevMessages) => {
-			// Limit to 20 messages
-			const updatedMessages = [newMessage, ...prevMessages].slice(0, 20)
-			return updatedMessages
-		})
+			setMessages((prevMessages) => {
+				// Limit to 20 messages
+				const updatedMessages = [newMessage, ...prevMessages].slice(0, 20)
+				return updatedMessages
+			})
 
-		// Pass message data to parent component if callback provided
-		if (onNewMessage && typeof onNewMessage === 'function') {
-			onNewMessage(newMessage)
-		}
-	}
+			// Pass message data to parent component if callback provided
+			if (onNewMessage && typeof onNewMessage === 'function') {
+				onNewMessage(newMessage)
+			}
+		},
+		[onNewMessage]
+	)
 
-	const handleError = (err) => {
+	const handleError = useCallback((err) => {
 		console.error('MQTT error:', err)
 		setConnectionStatus('error')
 		setErrorMessage(`Connection error: ${err.message}`)
-	}
+	}, [])
 
-	const handleClose = () => {
+	const handleClose = useCallback(() => {
 		console.log('Connection closed')
 		setConnectionStatus('disconnected')
 		setIsSubscribed(false)
-	}
+	}, [])
 
-	const handleOffline = () => {
+	const handleOffline = useCallback(() => {
 		console.log('Client offline')
 		setConnectionStatus('disconnected')
-	}
+	}, [])
 
-	const handleReconnect = () => {
+	const handleReconnect = useCallback(() => {
 		console.log('Attempting to reconnect')
 		setConnectionStatus('connecting')
-	}
+	}, [])
+
+	// Connect to MQTT broker
+	const connectMQTT = useCallback(() => {
+		setConnectionStatus('connecting')
+		setErrorMessage('')
+
+		try {
+			console.log('Connecting to MQTT broker:', brokerUrl)
+			const mqttClient = mqtt.connect(brokerUrl, options)
+			clientRef.current = mqttClient
+			setClient(mqttClient)
+
+			// Set up event handlers
+			mqttClient.on('connect', handleConnect)
+			mqttClient.on('message', handleMessage)
+			mqttClient.on('error', handleError)
+			mqttClient.on('close', handleClose)
+			mqttClient.on('offline', handleOffline)
+			mqttClient.on('reconnect', handleReconnect)
+		} catch (err) {
+			console.error('Failed to create MQTT client:', err)
+			setErrorMessage(`Failed to initialize MQTT client: ${err.message}`)
+			setConnectionStatus('error')
+		}
+	}, [
+		brokerUrl,
+		options,
+		handleConnect,
+		handleMessage,
+		handleError,
+		handleClose,
+		handleOffline,
+		handleReconnect,
+	])
 
 	// Handle publishing messages
 	const publishMessage = () => {
@@ -165,7 +183,7 @@ const MQTTClient = ({ onNewMessage }) => {
 				clientRef.current.end()
 			}
 		}
-	}, [])
+	}, [connectMQTT]) // Added connectMQTT to dependency array
 
 	// Generate CSS class based on connection status
 	const getStatusClass = () => {

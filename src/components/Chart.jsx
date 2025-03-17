@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Chart, registerables } from 'chart.js'
 import 'chartjs-adapter-date-fns'
 import '../styles/Chart.css'
@@ -27,8 +27,14 @@ const ChartComponent = ({ data, colors }) => {
 	const backgroundColor = '#5F5F5F'
 	const textColor = '#F8F8F8'
 
+	// Store colors in a ref to avoid dependency issues
+	const colorsRef = useRef(colors)
+	useEffect(() => {
+		colorsRef.current = colors
+	}, [colors])
+
 	// Function to prepare data in the correct format for Chart.js
-	const prepareData = (rawData) => {
+	const prepareData = useCallback((rawData) => {
 		if (!rawData || !Array.isArray(rawData)) return []
 
 		// If data is array of numbers, convert to {x,y} format with timestamps
@@ -45,10 +51,10 @@ const ChartComponent = ({ data, colors }) => {
 			x: point.x instanceof Date ? point.x : new Date(point.x),
 			y: point.y,
 		}))
-	}
+	}, [])
 
 	// Function to accumulate data
-	const accumulateData = (newData) => {
+	const accumulateData = useCallback((newData) => {
 		if (!newData || !newData.chartData) return
 
 		const dataTypes = ['temperature', 'humidity', 'pressure', 'gas']
@@ -79,7 +85,7 @@ const ChartComponent = ({ data, colors }) => {
 				}
 			}
 		})
-	}
+	}, [])
 
 	useEffect(() => {
 		// Ensure we have valid data
@@ -122,8 +128,8 @@ const ChartComponent = ({ data, colors }) => {
 							units[index]
 						})`,
 						data: historicalData.current[type],
-						borderColor: colors[type],
-						backgroundColor: `${colors[type]}30`,
+						borderColor: colorsRef.current[type],
+						backgroundColor: `${colorsRef.current[type]}30`,
 						borderWidth: 3,
 						pointRadius: 3,
 						pointHoverRadius: 7,
@@ -232,7 +238,7 @@ const ChartComponent = ({ data, colors }) => {
 						text: `${type.charAt(0).toUpperCase() + type.slice(1)} (${
 							units[index]
 						})`,
-						color: colors[type],
+						color: colorsRef.current[type],
 						font: { weight: 'bold' },
 					},
 					grid: {
@@ -240,7 +246,7 @@ const ChartComponent = ({ data, colors }) => {
 						color: 'rgba(255, 255, 255, 0.1)',
 					},
 					ticks: {
-						color: colors[type],
+						color: colorsRef.current[type],
 						callback: function (value) {
 							return `${value} ${units[index]}`
 						},
@@ -305,7 +311,7 @@ const ChartComponent = ({ data, colors }) => {
 				chartInstance.current = null
 			}
 		}
-	}, [data, visibleDatasets]) // Removed colors from dependencies to prevent re-renders
+	}, [data, visibleDatasets, accumulateData, prepareData]) // Added proper dependencies
 
 	// Handle toggling visibility of datasets
 	const toggleDataset = (datasetType) => {
@@ -330,7 +336,7 @@ const ChartComponent = ({ data, colors }) => {
 					}`}
 					style={{
 						backgroundColor: visibleDatasets.temperature
-							? colors.temperature
+							? colorsRef.current.temperature
 							: '#333',
 						color: textColor,
 					}}
@@ -342,7 +348,7 @@ const ChartComponent = ({ data, colors }) => {
 					className={`toggle-btn ${visibleDatasets.humidity ? 'active' : ''}`}
 					style={{
 						backgroundColor: visibleDatasets.humidity
-							? colors.humidity
+							? colorsRef.current.humidity
 							: '#333',
 						color: textColor,
 					}}
@@ -354,7 +360,7 @@ const ChartComponent = ({ data, colors }) => {
 					className={`toggle-btn ${visibleDatasets.pressure ? 'active' : ''}`}
 					style={{
 						backgroundColor: visibleDatasets.pressure
-							? colors.pressure
+							? colorsRef.current.pressure
 							: '#333',
 						color: textColor,
 					}}
@@ -365,7 +371,9 @@ const ChartComponent = ({ data, colors }) => {
 				<button
 					className={`toggle-btn ${visibleDatasets.gas ? 'active' : ''}`}
 					style={{
-						backgroundColor: visibleDatasets.gas ? colors.gas : '#333',
+						backgroundColor: visibleDatasets.gas
+							? colorsRef.current.gas
+							: '#333',
 						color: textColor,
 					}}
 					onClick={() => toggleDataset('gas')}
